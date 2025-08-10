@@ -10,4 +10,4 @@ safetensors
 selenium
 webdriver-manager
 undetected-chromedriver
-
+google-chrome-stable
