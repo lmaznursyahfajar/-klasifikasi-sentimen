@@ -9,4 +9,5 @@ wordcloud
 safetensors
 selenium
 webdriver-manager
+undetected-chromedriver
 
