@@ -145,9 +145,13 @@ elif menu == "📁 Klasifikasi File CSV":
                 st.download_button("⬇️ Unduh Hasil CSV", data=csv, file_name="hasil_klasifikasi.csv", mime='text/csv')
 
 # ==============================
-# Menu 3: Scraping Tokopedia
+# Menu 3: Scraping Tokopedia (Pakai undetected-chromedriver)
 # ==============================
 elif menu == "🔸 Scraping Tokopedia":
+    import undetected_chromedriver as uc
+    from selenium.webdriver.common.by import By
+    import time
+
     st.subheader("🔗 Scraping Review Tokopedia")
     url = st.text_input("Masukkan URL halaman produk Tokopedia:")
 
@@ -157,31 +161,15 @@ elif menu == "🔸 Scraping Tokopedia":
         else:
             st.info("⏳ Sedang melakukan scraping...")
 
-            from selenium import webdriver
-            from selenium.webdriver.chrome.service import Service
-            from selenium.webdriver.chrome.options import Options
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            from webdriver_manager.chrome import ChromeDriverManager
-
             try:
-                options = Options()
-                options.add_argument("--headless")  # Wajib di server
+                options = uc.ChromeOptions()
+                options.add_argument("--headless=new")  # mode tanpa GUI
                 options.add_argument("--no-sandbox")
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--disable-gpu")
                 options.add_argument("--window-size=1920x1080")
-                options.add_argument("--disable-blink-features=AutomationControlled")
 
-                # Set lokasi binary Chrome kalau ada (khusus server)
-                chrome_path = os.getenv("GOOGLE_CHROME_BIN", "/usr/bin/google-chrome")
-                if os.path.exists(chrome_path):
-                    options.binary_location = chrome_path
-
-                # Inisialisasi driver
-                service = Service(ChromeDriverManager().install())
-                driver = webdriver.Chrome(service=service, options=options)
+                driver = uc.Chrome(options=options)  # Chrome otomatis di-handle
 
                 data = []
                 driver.get(url)
@@ -192,36 +180,21 @@ elif menu == "🔸 Scraping Tokopedia":
                 while True:
                     st.write(f"📄 Memproses halaman {page}...")
 
-                    # Scroll untuk memastikan review muncul
+                    # Scroll agar review muncul
                     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                     time.sleep(3)
 
-                    try:
-                        WebDriverWait(driver, 10).until(
-                            EC.presence_of_all_elements_located(
-                                (By.XPATH, '//div[@data-testid="lblItemUlasan"]')
-                            )
-                        )
-                        review_elements = driver.find_elements(By.XPATH, '//div[@data-testid="lblItemUlasan"]')
+                    review_elements = driver.find_elements(By.XPATH, '//div[@data-testid="lblItemUlasan"]')
+                    st.write(f"🔍 Jumlah review ditemukan: {len(review_elements)}")
 
-                        st.write(f"🔍 Jumlah review ditemukan: {len(review_elements)}")
-
-                        for review in review_elements:
-                            text = review.text.strip()
-                            if text:
-                                data.append(text)
-
-                    except Exception as e:
-                        st.warning(f"⚠️ Tidak ada review ditemukan di halaman {page}. {str(e)}")
-                        break
+                    for review in review_elements:
+                        text = review.text.strip()
+                        if text:
+                            data.append(text)
 
                     # Coba klik tombol berikutnya
                     try:
-                        next_button = WebDriverWait(driver, 5).until(
-                            EC.element_to_be_clickable(
-                                (By.XPATH, '//button[contains(text(), "Berikutnya")]')
-                            )
-                        )
+                        next_button = driver.find_element(By.XPATH, '//button[contains(text(), "Berikutnya")]')
                         if next_button.is_enabled():
                             next_button.click()
                             page += 1
@@ -275,5 +248,7 @@ elif menu == "🔸 Scraping Tokopedia":
 
             except Exception as e:
                 st.error(f"❌ Terjadi kesalahan saat scraping: {e}")
+
+
 
 
