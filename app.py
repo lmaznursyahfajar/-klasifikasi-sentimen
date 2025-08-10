@@ -167,13 +167,19 @@ elif menu == "🔸 Scraping Tokopedia":
 
             try:
                 options = Options()
-                # options.add_argument("--headless")  # Aktifkan jika deploy
-                options.add_argument("--disable-blink-features=AutomationControlled")
+                options.add_argument("--headless")  # Wajib di server
                 options.add_argument("--no-sandbox")
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--disable-gpu")
                 options.add_argument("--window-size=1920x1080")
+                options.add_argument("--disable-blink-features=AutomationControlled")
 
+                # Set lokasi binary Chrome kalau ada (khusus server)
+                chrome_path = os.getenv("GOOGLE_CHROME_BIN", "/usr/bin/google-chrome")
+                if os.path.exists(chrome_path):
+                    options.binary_location = chrome_path
+
+                # Inisialisasi driver
                 service = Service(ChromeDriverManager().install())
                 driver = webdriver.Chrome(service=service, options=options)
 
@@ -192,7 +198,9 @@ elif menu == "🔸 Scraping Tokopedia":
 
                     try:
                         WebDriverWait(driver, 10).until(
-                            EC.presence_of_all_elements_located((By.XPATH, '//div[@data-testid="lblItemUlasan"]'))
+                            EC.presence_of_all_elements_located(
+                                (By.XPATH, '//div[@data-testid="lblItemUlasan"]')
+                            )
                         )
                         review_elements = driver.find_elements(By.XPATH, '//div[@data-testid="lblItemUlasan"]')
 
@@ -210,7 +218,9 @@ elif menu == "🔸 Scraping Tokopedia":
                     # Coba klik tombol berikutnya
                     try:
                         next_button = WebDriverWait(driver, 5).until(
-                            EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Berikutnya")]'))
+                            EC.element_to_be_clickable(
+                                (By.XPATH, '//button[contains(text(), "Berikutnya")]')
+                            )
                         )
                         if next_button.is_enabled():
                             next_button.click()
@@ -234,7 +244,9 @@ elif menu == "🔸 Scraping Tokopedia":
 
                     with st.spinner("🔍 Menganalisis sentimen..."):
                         results = pipeline(df['comment'].astype(str).tolist())
-                        predicted_labels = [decode_label(max(r, key=lambda x: x['score'])['label']) for r in results]
+                        predicted_labels = [
+                            decode_label(max(r, key=lambda x: x['score'])['label']) for r in results
+                        ]
                         df['predicted_sentiment'] = predicted_labels
 
                     # Plot distribusi sentimen
@@ -254,7 +266,14 @@ elif menu == "🔸 Scraping Tokopedia":
 
                     # Unduh hasil
                     csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button("⬇️ Unduh File CSV", data=csv, file_name="hasil_scraping_tokopedia.csv", mime='text/csv')
+                    st.download_button(
+                        "⬇️ Unduh File CSV",
+                        data=csv,
+                        file_name="hasil_scraping_tokopedia.csv",
+                        mime='text/csv'
+                    )
 
             except Exception as e:
                 st.error(f"❌ Terjadi kesalahan saat scraping: {e}")
+
+
