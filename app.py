@@ -149,6 +149,9 @@ elif menu == "📁 Klasifikasi File CSV":
 # Menu 3: Scraping Tokopedia (Pakai undetected-chromedriver)
 # ==============================
 elif menu == "🔸 Scraping Tokopedia":
+    import requests
+    from bs4 import BeautifulSoup
+
     st.subheader("🔗 Scraping Review Tokopedia")
     url = st.text_input("Masukkan URL halaman produk Tokopedia:")
 
@@ -156,117 +159,60 @@ elif menu == "🔸 Scraping Tokopedia":
         if not url.strip():
             st.warning("⚠️ Masukkan URL terlebih dahulu.")
         else:
-            st.info("⏳ Sedang melakukan scraping...")
-
-            from selenium import webdriver
-            from selenium.webdriver.chrome.service import Service
-            from selenium.webdriver.chrome.options import Options
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            from webdriver_manager.chrome import ChromeDriverManager
-            import shutil
-
             try:
-                # Cari lokasi chrome di sistem
-                chrome_path = shutil.which("google-chrome") or shutil.which("chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
-                if not chrome_path:
-                    raise Exception("Google Chrome tidak ditemukan di sistem.")
+                st.info("⏳ Mengambil data review...")
 
-                options = Options()
-                options.binary_location = chrome_path  # set lokasi binary Chrome
-                options.add_argument("--headless")
-                options.add_argument("--disable-blink-features=AutomationControlled")
-                options.add_argument("--no-sandbox")
-                options.add_argument("--disable-dev-shm-usage")
-                options.add_argument("--disable-gpu")
-                options.add_argument("--window-size=1920x1080")
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                  "Chrome/114.0.0.0 Safari/537.36"
+                }
 
-                service = Service(ChromeDriverManager().install())
-                driver = webdriver.Chrome(service=service, options=options)
-
-                data = []
-                driver.get(url)
-                st.write("✅ Halaman dibuka, menunggu review muncul...")
-                time.sleep(5)
-
-                page = 1
-                while True:
-                    st.write(f"📄 Memproses halaman {page}...")
-
-                    # Scroll agar review muncul
-                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    time.sleep(3)
-
-                    try:
-                        WebDriverWait(driver, 10).until(
-                            EC.presence_of_all_elements_located((By.XPATH, '//div[@data-testid="lblItemUlasan"]'))
-                        )
-                        review_elements = driver.find_elements(By.XPATH, '//div[@data-testid="lblItemUlasan"]')
-
-                        st.write(f"🔍 Jumlah review ditemukan: {len(review_elements)}")
-
-                        for review in review_elements:
-                            text = review.text.strip()
-                            if text:
-                                data.append(text)
-
-                    except Exception as e:
-                        st.warning(f"⚠️ Tidak ada review ditemukan di halaman {page}. {str(e)}")
-                        break
-
-                    # Coba klik tombol berikutnya
-                    try:
-                        next_button = WebDriverWait(driver, 5).until(
-                            EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Berikutnya")]'))
-                        )
-                        if next_button.is_enabled():
-                            next_button.click()
-                            page += 1
-                            time.sleep(3)
-                        else:
-                            break
-                    except:
-                        st.info("🔚 Tidak ada tombol 'Berikutnya' atau tidak bisa diklik.")
-                        break
-
-                driver.quit()
-
-                # Tampilkan hasil
-                if not data:
-                    st.warning("❌ Tidak ada review ditemukan.")
+                response = requests.get(url, headers=headers)
+                if response.status_code != 200:
+                    st.error(f"Gagal mengambil halaman. Status: {response.status_code}")
                 else:
-                    st.success(f"✅ Ditemukan {len(data)} review.")
-                    df = pd.DataFrame(data, columns=["comment"])
-                    st.dataframe(df.head())
+                    soup = BeautifulSoup(response.text, "html.parser")
 
-                    with st.spinner("🔍 Menganalisis sentimen..."):
-                        results = pipeline(df['comment'].astype(str).tolist())
-                        predicted_labels = [decode_label(max(r, key=lambda x: x['score'])['label']) for r in results]
-                        df['predicted_sentiment'] = predicted_labels
+                    # Ambil elemen review
+                    review_elements = soup.find_all("div", {"data-testid": "lblItemUlasan"})
+                    data = [rev.get_text(strip=True) for rev in review_elements if rev.get_text(strip=True)]
 
-                    # Plot distribusi sentimen
-                    st.subheader("📊 Distribusi Sentimen")
-                    fig, ax = plt.subplots()
-                    sns.countplot(data=df, x="predicted_sentiment", palette="Set2", ax=ax)
-                    st.pyplot(fig)
+                    if not data:
+                        st.warning("❌ Tidak ada review ditemukan di halaman ini.")
+                    else:
+                        st.success(f"✅ Ditemukan {len(data)} review.")
+                        df = pd.DataFrame(data, columns=["comment"])
+                        st.dataframe(df.head())
 
-                    # WordCloud
-                    st.subheader("☁️ WordCloud")
-                    all_text = " ".join(df['comment'].astype(str))
-                    wc = WordCloud(width=800, height=300, background_color='white').generate(normalize_text(all_text))
-                    fig_wc, ax_wc = plt.subplots(figsize=(10, 3))
-                    ax_wc.imshow(wc, interpolation='bilinear')
-                    ax_wc.axis("off")
-                    st.pyplot(fig_wc)
+                        with st.spinner("🔍 Menganalisis sentimen..."):
+                            results = pipeline(df['comment'].astype(str).tolist())
+                            predicted_labels = [decode_label(max(r, key=lambda x: x['score'])['label']) for r in results]
+                            df['predicted_sentiment'] = predicted_labels
 
-                    # Unduh hasil
-                    csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button("⬇️ Unduh File CSV", data=csv, file_name="hasil_scraping_tokopedia.csv", mime='text/csv')
+                        # 📊 Distribusi Sentimen
+                        st.subheader("📊 Distribusi Sentimen")
+                        fig, ax = plt.subplots()
+                        sns.countplot(data=df, x="predicted_sentiment", palette="Set2", ax=ax)
+                        st.pyplot(fig)
+
+                        # ☁️ WordCloud
+                        st.subheader("☁️ WordCloud")
+                        all_text = " ".join(df['comment'].astype(str))
+                        wc = WordCloud(width=800, height=300, background_color='white').generate(normalize_text(all_text))
+                        fig_wc, ax_wc = plt.subplots(figsize=(10, 3))
+                        ax_wc.imshow(wc, interpolation='bilinear')
+                        ax_wc.axis("off")
+                        st.pyplot(fig_wc)
+
+                        # Unduh CSV
+                        csv = df.to_csv(index=False).encode('utf-8')
+                        st.download_button("⬇️ Unduh File CSV", data=csv,
+                                           file_name="hasil_scraping_tokopedia.csv",
+                                           mime='text/csv')
 
             except Exception as e:
                 st.error(f"❌ Terjadi kesalahan saat scraping: {e}")
-
 
 
 
