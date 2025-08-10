@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
+import undetected_chromedriver as uc
 from selenium.webdriver.support import expected_conditions as EC
 from sklearn.feature_extraction.text import TfidfVectorizer
 from webdriver_manager.chrome import ChromeDriverManager
@@ -248,6 +249,7 @@ elif menu == "🔸 Scraping Tokopedia":
 
             except Exception as e:
                 st.error(f"❌ Terjadi kesalahan saat scraping: {e}")
+
 
 
 
