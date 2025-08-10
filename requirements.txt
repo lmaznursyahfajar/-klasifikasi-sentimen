@@ -9,3 +9,4 @@ wordcloud
 safetensors
 selenium
 webdriver-manager
+google-chrome-stable
