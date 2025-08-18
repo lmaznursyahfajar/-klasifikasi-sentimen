@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from wordcloud import WordCloud
 from collections import Counter
-from transformers import BertTokenizer, BertForSequenceClassification, TextClassificationPipeline
+from transformers import BertTokenizer, BertForSequenceClassification, TextClassification,Pipeline
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -62,7 +62,7 @@ def normalize_text(text):
 def load_pipeline():
     model = BertForSequenceClassification.from_pretrained("AznurOde21/indo-sentimen-tokopedia")
     tokenizer = BertTokenizer.from_pretrained("AznurOde21/indo-sentimen-tokopedia")
-    return TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+    return pipeline("text-classification", model=model, tokenizer=tokenizer, return_all_scores=True)
 
 pipeline = load_pipeline()
 
@@ -213,6 +213,7 @@ elif menu == "🔸 Scraping Tokopedia":
 
             except Exception as e:
                 st.error(f"❌ Terjadi kesalahan saat scraping: {e}")
+
 
 
 
