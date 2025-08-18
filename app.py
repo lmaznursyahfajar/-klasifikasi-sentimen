@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from wordcloud import WordCloud
 from collections import Counter
-from transformers import BertTokenizer, BertForSequenceClassification, TextClassification, pipeline
+from transformers import BertTokenizer, BertForSequenceClassification, pipeline
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -213,6 +213,7 @@ elif menu == "🔸 Scraping Tokopedia":
 
             except Exception as e:
                 st.error(f"❌ Terjadi kesalahan saat scraping: {e}")
+
 
 
 
