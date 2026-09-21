@@ -176,6 +176,27 @@ def decode_label(label: str) -> str:
     return label
 
 
+def best_score(result) -> dict:
+    """Normalize a single pipeline result to one {'label', 'score'} dict.
+
+    Depending on the transformers version / batch size, a `return_all_scores=True`
+    (a.k.a. `top_k=None`) pipeline call can come back either as:
+      - a list of {'label', 'score'} dicts (the expected shape), or
+      - a single {'label', 'score'} dict (e.g. when the batch collapses to one item).
+    This handles both so downstream code never has to guess.
+    """
+    if isinstance(result, dict):
+        return result
+    return max(result, key=lambda x: x["score"])
+
+
+def all_scores_dict(result) -> dict:
+    """Normalize a single pipeline result into a {label: score} dict for every class."""
+    if isinstance(result, dict):
+        return {decode_label(result["label"]): result["score"]}
+    return {decode_label(item["label"]): item["score"] for item in result}
+
+
 @st.cache_resource(show_spinner=False)
 def load_pipeline():
     model = BertForSequenceClassification.from_pretrained("AznurOde21/indo-sentimen-tokopedia")
@@ -271,8 +292,17 @@ def run_batch_classification(pipe, comments: pd.Series) -> tuple[list, list]:
     for i in range(0, total, batch_size):
         batch = texts[i:i + batch_size]
         results = pipe(batch)
+        # `results` should be a list with one entry (itself a list of per-label
+        # score dicts) per input text. Guard against shape quirks when the
+        # batch has just one item: the pipeline can collapse the outer list
+        # and hand back either a single dict, or the flat list of per-label
+        # dicts for that one item instead of a list-of-lists.
+        if isinstance(results, dict):
+            results = [results]
+        elif len(batch) == 1 and isinstance(results, list) and results and isinstance(results[0], dict):
+            results = [results]
         for r in results:
-            best = max(r, key=lambda x: x["score"])
+            best = best_score(r)
             predicted_labels.append(decode_label(best["label"]))
             confidences.append(best["score"])
         done = min(i + batch_size, total)
@@ -388,8 +418,14 @@ if menu == "📥 Klasifikasi Manual":
             st.warning("⚠️ Masukkan teks terlebih dahulu.")
         else:
             with st.spinner("Menganalisis..."):
-                output = sentiment_pipeline(user_input)[0]
-                label_scores = {decode_label(item["label"]): item["score"] for item in output}
+                output = sentiment_pipeline(user_input)
+                # Some transformers versions return a single dict, others a
+                # list-of-one containing the list of per-label scores.
+                if isinstance(output, list) and len(output) == 1 and isinstance(output[0], list):
+                    output = output[0]
+                label_scores = all_scores_dict(output) if isinstance(output, dict) else {
+                    decode_label(item["label"]): item["score"] for item in output
+                }
                 predicted_label = max(label_scores, key=label_scores.get)
                 confidence = label_scores[predicted_label]
 
